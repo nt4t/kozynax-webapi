@@ -3,6 +3,7 @@ _bindebug
 .vs
 .nuget
 bin
+dist
 *.suo
 _binrelease
 .idea
