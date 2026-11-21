@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Kozynax.WebApi</RootNamespace>
+    <AssemblyName>Kozynax.WebApi</AssemblyName>
+    <Version>0.0.0</Version>
+    <!-- Consume the engine/host as a plain (non-self-contained) library so ASP.NET Core
+         reference assemblies resolve cleanly at build time. See src/Kozynax.Engine.csproj. -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Nullable>enable</Nullable>
+    <!-- Nested under src/, so Directory.Build.props' relative icon/config/roms paths (written
+         only for projects directly under src/) do not resolve. The Web API needs none of those
+         data files, so drop every item the shared props injects here. -->
+    <ApplicationIcon></ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Drop app-icon + emulator data resources injected by ../Directory.Build.props. -->
+    <EmbeddedResource Remove="@(EmbeddedResource)" />
+    <Content Remove="@(Content)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pull in the emulation engine + SDL host (VirtualMachine, HostService, IHost*, CpuUnit).
+         Must be the plain recompiled Kozynax.Engine: a self-contained exe (Kozynax.Sdl) cannot
+         be referenced by this non-self-contained exe (NETSDK1151). -->
+    <ProjectReference Include="../Kozynax.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

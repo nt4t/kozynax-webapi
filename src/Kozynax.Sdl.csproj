@@ -48,4 +48,11 @@
     <None Remove="ZXMAK2.DirectX\**" />
   </ItemGroup>
 
+  <!-- The Web API is its own assembly; keep it out of the SDL build. -->
+  <ItemGroup>
+    <Compile Remove="Kozynax.WebApi\**" />
+    <EmbeddedResource Remove="Kozynax.WebApi\**" />
+    <None Remove="Kozynax.WebApi\**" />
+  </ItemGroup>
+
 </Project>

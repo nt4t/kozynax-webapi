@@ -24,6 +24,12 @@
     <ProjectReference Include="..\src\Kozynax.Sdl.csproj" />
   </ItemGroup>
 
+  <!-- The WebApi WebSocket integration tests live in tests/WebSockets (project
+       Kozynax.WebApi.Tests) and must not be compiled by this Sdl-based suite. -->
+  <ItemGroup>
+    <Compile Remove="WebSockets\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <EmbeddedResource Include="Fixtures\testVideo.z80" LogicalName="Kozynax.Tests.Fixtures.testVideo.z80" />

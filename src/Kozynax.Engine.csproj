@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Non-self-contained engine/host library consumed by the Web API.
+
+    Kozynax.Sdl.csproj is a SELF-CONTAINED WinExe; its output cannot be referenced
+    cleanly by an ASP.NET Core app (the SC+RID compile path drops the AspNetCore /
+    bundled-BCL reference assemblies). This project recompiles the exact same engine,
+    hardware and SDL-host sources into a plain library so WebApi can use them while
+    still getting full ASP.NET Core references.
+
+    Source set + package refs mirror Kozynax.Sdl.csproj; only the assembly shape
+    (Library vs WinExe) differs. Kozynax.Sdl is left untouched for CI.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace />
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Kozynax.Engine</AssemblyName>
+    <DefineConstants>$(DefineConstants);SDL_HOST</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>0.0.0</Version>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ICSharpCode.SharpZipLib.Patched" Version="1.2.0.9" />
+    <PackageReference Include="MoonSharp" Version="2.0.0" />
+    <PackageReference Include="Silk.NET.SDL" Version="2.22.0" />
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+    <PackageReference Include="StbImageWriteSharp" Version="1.13.5" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.0" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Windows / DX / WinForms host stay out, exactly as in the SDL build -->
+    <Compile Remove="ZXMAK2.DirectX\**" />
+    <Compile Remove="ZXMAK2.Host.WinForms\**" />
+    <Compile Remove="ZXMAK2.Hardware.WinForms\**" />
+    <Compile Remove="ZXMAK2\Program.cs" />
+    <Compile Remove="Properties\AssemblyInfo.cs" />
+    <None Remove="ZXMAK2\app.config" />
+
+    <EmbeddedResource Remove="ZXMAK2.DirectX\**" />
+    <EmbeddedResource Remove="ZXMAK2.Host.WinForms\**" />
+    <EmbeddedResource Remove="ZXMAK2.Hardware.WinForms\**" />
+    <None Remove="ZXMAK2.DirectX\**" />
+
+    <!-- The Web API is its own assembly; keep it out of the engine library. -->
+    <Compile Remove="Kozynax.WebApi\**" />
+    <EmbeddedResource Remove="Kozynax.WebApi\**" />
+    <None Remove="Kozynax.WebApi\**" />
+  </ItemGroup>
+
+</Project>
