@@ -14,14 +14,23 @@
 - [x] **P5. Tests** — `WebApplicationFactory` integration + WS client test harness (`tests/WebSockets/Kozynax.WebApi.Tests.csproj`). Both tests pass.
   - Fixed compile errors: dropped `using var` on non-disposable `WebSocketClient`; replaced protected `_factory.Client` with public `_factory.Server.CreateClient()`.
   - Fixed a real server crash unblocking the tests: `HeadlessEmulatorFactory` never initialized the engine Locator, so `BusManager`'s catch dereferenced null `Locator.Resolve<IUserMessage>()` during `VirtualMachine.Init()`. Registering silent `IUserMessage -> UserMessage` before boot fixes it.
-- [ ] **P6. Build, run, verify** — `dotnet build`, `dotnet test`; launch server headless, exercise endpoints/WS with curl/websocket client.
+- [x] **P6. Build, run, verify** — launched headless; exercised every HTTP endpoint + WS end-to-end (curl + Node global WebSocket).
+  - Live-passed: `/config`→Spectrum 48K, `/snapshot` loads a real game (`Exolon_1987...z80`), `/run`, `/cpu` shows live registers,
+    `/screen` streams a valid 320×256 P6 image, `/stop`; plus `/mem`, `/memory/dump`, breakpoints CRUD. WS handshake/close covered by
+    the in-process `StreamHubWebSocketTests`.
+  - Fixed upload bug found by verify: `/snapshot` & `/config` gated on `"multipart"` but read the raw body — real uploads never worked.
+    Rewrote to `ReadFormAsync()`/`IFormFile`; kept JSON `{url}` path; stopped stripping the filename extension (LoadManager needs it).
+  - Fixed server-wedge found by verify: `DoStop()` joins the render thread, which blocks when the emulator is stuck (e.g. a tape game
+    waiting for media headless); holding the writer lock across it froze every endpoint. `EmulatorSession.Stop()` now runs `DoStop`
+    off-thread with a 10s bounded wait → `/stop` returns promptly, server stays responsive, clean stop still attempted.
 - [ ] **P7. Packaging hook** — optional flag to bundle WebApi into single-file Linux release; CI matrix row.
 
 ## Errors Encountered
 | Error | Cause | Resolution |
 |-------|-------|-----------|
 | `AcceptAsync` missing | net10 renamed the WebSocket accept API | use `AcceptWebSocketAsync()` |
-| `IsMultipartContentType` / `ReadFormAsync` missing | net10 removed form-binding helpers | read `Request.Body` + content-type check; pass no `FormOptions` |
+| Uploads never parsed (`multipart` gate, raw body) | `WebEndpoints` checked `"multipart"` but copied the raw request body instead of the form | parse with `HttpRequest.ReadFormAsync()` + `IFormFile`; keep JSON `{url}` path; use full filename (extension) for format detection |
+| `/stop` wedges whole server | `DoStop()` joins the render thread; blocks forever when emulator is stuck (tape load headless); writer lock held across it | `EmulatorSession.Stop()` runs `DoStop` off-thread with a 10s bounded wait |
 | Channels `BoundedChannelFillMode`/`.FillMode` | this SDK build uses legacy names | `BoundedChannelFullMode.FullMode` |
 | NETSDK1151 (self-contained exe) | WebApi can't reference Kozynax.Sdl | keep the plain recompiled `Kozynax.Engine` as the engine ref |
 | CS0433 duplicate types | Engine + Sdl both referenced in one project | isolate WS tests in a separate project referencing only WebApi |

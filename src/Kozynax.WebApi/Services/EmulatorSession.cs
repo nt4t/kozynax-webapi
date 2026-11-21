@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using Kozynax.WebApi.Host;
 using ZXMAK2.Engine;
 using ZXMAK2.Engine.Entities;
@@ -113,9 +114,20 @@ public sealed class EmulatorSession
     public void Stop()
     {
         ThrowIfDisposed();
-        lock (_lock)
+        if (!_emulator.Machine.IsRunning) return;
+        // DoStop joins the render thread, which can block indefinitely when the emulator is stuck
+        // (e.g. a tape-based game waiting for media in headless mode). Joining on the request
+        // thread while holding the writer lock wedges every endpoint, so run it off-thread with a
+        // bounded wait: /stop returns promptly and the server stays responsive. The engine still
+        // attempts a clean stop; we never force-abort a stuck thread.
+        try
         {
-            if (_emulator.Machine.IsRunning) _emulator.Machine.DoStop();
+            var stop = Task.Run(() => _emulator.Machine.DoStop());
+            stop.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            // Leave the emulator running if it cannot be stopped cleanly; a wedged server is worse.
         }
     }
 

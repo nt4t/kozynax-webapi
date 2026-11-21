@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 
 using Microsoft.AspNetCore.Builder;
@@ -39,12 +40,25 @@ public static class WebEndpoints
         {
             if ((ctx.Request.ContentType ?? "").Contains("multipart"))
             {
+                // Parse the multipart form to extract the uploaded part (net10 still ships
+                // HttpRequest.ReadFormAsync / IFormFile).
+                var form = await ctx.Request.ReadFormAsync();
+                var file = form.Files.FirstOrDefault();
+                if (file is null || file.Length == 0)
+                    throw new ApiError(ApiErrorCode.UnsupportedFormat, "no file uploaded");
                 using var ms = new MemoryStream();
-                await ctx.Request.Body.CopyToAsync(ms);
-                if (ms.Length == 0)
+                await file.OpenReadStream().CopyToAsync(ms);
+                var bytes = ms.ToArray();
+                if (bytes.Length == 0)
                     throw new ApiError(ApiErrorCode.UnsupportedFormat, "empty upload");
-                var name = session.LoadFromBytes(ctx.Request.Headers["Filename"].ToString() ?? "snapshot", ms.ToArray());
-                return Results.Ok(new { status = "loaded", machine = name });
+                // Logical name drives format detection in the LoadManager, so keep the extension.
+                // Prefer the uploaded part filename; fall back to an explicit "Filename" form field,
+                // then to a bare "snapshot" (which the default machine can still initialise).
+                var name = string.IsNullOrEmpty(file.FileName)
+                       ? (form.ContainsKey("Filename") ? form["Filename"].ToString() : "snapshot")
+                       : file.FileName;
+                var loaded = session.LoadFromBytes(name, bytes);
+                return Results.Ok(new { status = "loaded", machine = loaded });
             }
             var json = await ctx.Request.ReadFromJsonAsync<LoadByUrl?>();
             if (json?.Url is not null)
@@ -61,11 +75,15 @@ public static class WebEndpoints
         {
             if ((ctx.Request.ContentType ?? "").Contains("multipart"))
             {
+                var form = await ctx.Request.ReadFormAsync();
+                var file = form.Files.FirstOrDefault();
+                if (file is null)
+                    throw new ApiError(ApiErrorCode.UnsupportedFormat, "no config file uploaded");
                 var tmp = Path.GetTempFileName();
                 try
                 {
-                    using var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write);
-                    await ctx.Request.Body.CopyToAsync(fs);
+                    using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write))
+                        await file.OpenReadStream().CopyToAsync(fs);
                     session.LoadConfig(tmp);
                     return Results.Ok(new { status = "config_loaded" });
                 }

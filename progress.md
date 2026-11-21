@@ -7,12 +7,22 @@
 - [x] **P0 Scaffold project** — `src/Kozynax.WebApi` builds clean in Release.
   - Fixed `StreamHub.cs`: channels API (`BoundedChannelFullMode.FullMode`, `.Writer.TryWrite`), `ctx.RequestServices`;
     switched to `AcceptWebSocketAsync()` (net10 renamed `AcceptAsync`).
-  - Fixed `WebEndpoints.cs`: form binding via `Request.Body.CopyToAsync` + content-type check (net10 dropped the
-    `IsMultipartContentType`/`ReadFormAsync` extension helpers); `/screen` reads `frame.Buffer`/`Width`/`Height`.
+  - Fixed `WebEndpoints.cs`: multipart form parsing via `HttpRequest.ReadFormAsync()` + `IFormFile` (net10 still ships these;
+    the earlier raw-body approach never parsed the multipart envelope, so real uploads could not work); `/screen` reads
+    `frame.Buffer`/`Width`/`Height`. Later refined in P6 to preserve the uploaded filename's extension for format detection.
   - Fixed `ApiErrorMiddleware.cs`: passes enum code, not `.Code.ToString()`.
   - Rewrote csproj to drop broken nested ProjectResource paths (icon/config/roms) that only resolve under `src/`.
 - [x] **P4/P5 WebSocket test harness** — added in-process integration tests via `WebApplicationFactory<Program>`.
 - [x] **P5 Tests pass** — both `StreamHubWebSocketTests` green. Fixed compile errors (`using var` on non-disposable `WebSocketClient`; protected `_factory.Client` -> public `_factory.Server.CreateClient()`). Also fixed a real server crash blocking the tests: `HeadlessEmulatorFactory` never initialized the engine Locator, so `BusManager`'s device-load catch dereferenced null `Locator.Resolve<IUserMessage>()` and threw NRE during `VirtualMachine.Init()`. Registering a silent `IUserMessage -> UserMessage` before boot fixes both.
+- [x] **P6. Build, run, verify** — launched headless; exercised every HTTP endpoint + WS end-to-end (curl + Node global WebSocket).
+  - Live-passed: `/config`→Spectrum 48K, `/snapshot` loads a real game (`Exolon_1987...z80`), `/run`, `/cpu` shows live registers,
+    `/screen` streams a valid 320×256 P6 image, `/stop`; plus `/mem`, `/memory/dump`, breakpoints CRUD. WS handshake/close covered by
+    the in-process `StreamHubWebSocketTests`.
+  - Fixed upload bug found by verify: `/snapshot` & `/config` gated on `"multipart"` but read the raw body — real uploads never worked.
+    Rewrote to `ReadFormAsync()`/`IFormFile`; kept JSON `{url}` path; stopped stripping the filename extension (LoadManager needs it).
+  - Fixed server-wedge found by verify: `DoStop()` joins the render thread, which blocks when the emulator is stuck (e.g. a tape game
+    waiting for media headless); holding the writer lock across it froze every endpoint. `EmulatorSession.Stop()` now runs `DoStop`
+    off-thread with a 10s bounded wait → `/stop` returns promptly, server stays responsive, clean stop still attempted.
 
 ## Build/test commands
 ```bash
@@ -26,7 +36,7 @@ dotnet test tests/WebSockets/Kozynax.WebApi.Tests.csproj -c Release \
 
 ## Resolved / remaining
 Both WebSocket compile errors are fixed and both tests pass (`dotnet test ... --filter FullyQualifiedName~StreamHubWebSocketTests`).
-The WebApi builds clean in Release. Next phase is P6: launch the server headless and exercise the HTTP + WS endpoints.
+The WebApi builds clean in Release. P6 is complete (headless launch + full endpoint/WS verification). Next phase is P7.
 
 ## Notes
 - SDL host uses custom Locator DI; ASP.NET DI only for web layer.
