@@ -18,6 +18,22 @@
     <ApplicationIcon></ApplicationIcon>
   </PropertyGroup>
 
+  <!-- P7: optional self-contained single-file Linux release.
+       OFF BY DEFAULT (multi-file output). Enable with -p:WebApiSingleFile=true, which adds the
+       linux-x64 RID, switches to a self-contained publish and embeds every managed assembly into
+       one executable. Verified: produces a ~106 MB standalone Kozynax.WebApi that runs without any
+       runtime installed. Kept conditional so default `dotnet build`/test stays platform-agnostic.
+  -->
+  <PropertyGroup Condition="'$(WebApiSingleFile)' == 'true'">
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <DebugType />
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>

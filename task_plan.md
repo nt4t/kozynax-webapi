@@ -23,7 +23,13 @@
   - Fixed server-wedge found by verify: `DoStop()` joins the render thread, which blocks when the emulator is stuck (e.g. a tape game
     waiting for media headless); holding the writer lock across it froze every endpoint. `EmulatorSession.Stop()` now runs `DoStop`
     off-thread with a 10s bounded wait → `/stop` returns promptly, server stays responsive, clean stop still attempted.
-- [ ] **P7. Packaging hook** — optional flag to bundle WebApi into single-file Linux release; CI matrix row.
+- [x] **P7. Packaging hook** — optional self-contained single-file Linux release.
+  - Added `WebApiSingleFile` MSBuild property (`src/Kozynax.WebApi/Kozynax.WebApi.csproj`, off by default): flips
+    `linux-x64` RID + `--self-contained true` + `PublishSingleFile=true`; verified output is one ~106 MB exe that runs
+    without any runtime installed. Default build stays multi-file.
+  - Added `packaging/webapi/make-linux-singlefile.sh` (publishes via the flag, reuses `make-zip.sh` for pdbs/roms).
+  - Added `linux-webapi` job to `.github/workflows/package.yml`, gated behind new `publish_webapi` workflow_dispatch
+    input; aggregated into the release step.
 
 ## Errors Encountered
 | Error | Cause | Resolution |

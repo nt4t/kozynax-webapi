@@ -11,6 +11,10 @@ on:
         description: "Upload artifacts to a GitHub Release"
         type: boolean
         default: false
+      publish_webapi:
+        description: "Also build the optional self-contained single-file Web API release"
+        type: boolean
+        default: false
 
 env:
   DOTNET_NOLOGO: true
@@ -230,6 +234,33 @@ jobs:
           path: artifacts/dist/*
           if-no-files-found: error
 
+  linux-webapi:
+    # Optional self-contained single-file Web API release (WebApiSingleFile flag). Runs on push/PR;
+    # on manual workflow_dispatch runs only when publish_webapi is checked.
+    if: >
+      github.event_name != 'workflow_dispatch' || inputs.publish_webapi
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Package single-file Web API (linux-x64)
+        run: |
+          mkdir -p artifacts/dist
+          bash packaging/webapi/make-linux-singlefile.sh \
+            "${{ needs.version.outputs.version }}" \
+            artifacts/dist
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: linux-webapi
+          path: artifacts/dist/*
+          if-no-files-found: error
+
   release:
     # Tag pushes always release. Manual runs only when create_release is checked
     # (workflow_dispatch uses a branch ref, so the tag check alone is not enough).
@@ -243,6 +274,7 @@ jobs:
       - macos-sdl
       - windows-sdl
       - windows-winforms
+      - linux-webapi
     runs-on: ubuntu-latest
     permissions:
       contents: write

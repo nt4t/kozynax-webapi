@@ -14,6 +14,11 @@
   - Rewrote csproj to drop broken nested ProjectResource paths (icon/config/roms) that only resolve under `src/`.
 - [x] **P4/P5 WebSocket test harness** — added in-process integration tests via `WebApplicationFactory<Program>`.
 - [x] **P5 Tests pass** — both `StreamHubWebSocketTests` green. Fixed compile errors (`using var` on non-disposable `WebSocketClient`; protected `_factory.Client` -> public `_factory.Server.CreateClient()`). Also fixed a real server crash blocking the tests: `HeadlessEmulatorFactory` never initialized the engine Locator, so `BusManager`'s device-load catch dereferenced null `Locator.Resolve<IUserMessage>()` and threw NRE during `VirtualMachine.Init()`. Registering a silent `IUserMessage -> UserMessage` before boot fixes both.
+- [x] **P7. Packaging hook** — optional self-contained single-file Web API release.
+  - `WebApiSingleFile` MSBuild property (csproj, off by default): linux-x64 RID + --self-contained + PublishSingleFile;
+    verified ~106 MB one-exe output that runs without a runtime; default build stays multi-file (16 dll sidecars).
+  - `packaging/webapi/make-linux-singlefile.sh` publishes via the flag and reuses make-zip.sh (strips pdbs, packs roms).
+  - Added `linux-webapi` job to package.yml gated behind a new `publish_webapi` workflow_dispatch input; added to release.
 - [x] **P6. Build, run, verify** — launched headless; exercised every HTTP endpoint + WS end-to-end (curl + Node global WebSocket).
   - Live-passed: `/config`→Spectrum 48K, `/snapshot` loads a real game (`Exolon_1987...z80`), `/run`, `/cpu` shows live registers,
     `/screen` streams a valid 320×256 P6 image, `/stop`; plus `/mem`, `/memory/dump`, breakpoints CRUD. WS handshake/close covered by
@@ -36,7 +41,8 @@ dotnet test tests/WebSockets/Kozynax.WebApi.Tests.csproj -c Release \
 
 ## Resolved / remaining
 Both WebSocket compile errors are fixed and both tests pass (`dotnet test ... --filter FullyQualifiedName~StreamHubWebSocketTests`).
-The WebApi builds clean in Release. P6 is complete (headless launch + full endpoint/WS verification). Next phase is P7.
+The WebApi builds clean in Release. P6–P7 are complete (headless launch + full endpoint/WS verification, plus optional
+single-file Linux packaging hook wired into CI). All planned phases through P7 are done; no outstanding work remains.
 
 ## Notes
 - SDL host uses custom Locator DI; ASP.NET DI only for web layer.

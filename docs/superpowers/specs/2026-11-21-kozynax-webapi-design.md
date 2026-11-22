@@ -78,7 +78,9 @@ The frame-pump advances the emulator and publishes ticks; WS send is serialized 
 
 ## 9. Build & Packaging
 
-Publish alongside the SDL build; an optional flag bundles it into the single-file Linux release (`dist/linux-x64`) so one container/image serves both app and API. Add a CI matrix row for web-api publish + test in `.github/workflows/package.yml`.
+Publish alongside the SDL build; an optional `WebApiSingleFile` MSBuild flag bundles it into the single-file Linux release (`dist/linux-x64`) so one container/image serves both app and API. Default builds stay multi-file.
+
+Implemented (P7): the flag adds the `linux-x64` RID + `--self-contained true` + `PublishSingleFile=true`, yielding one ~106 MB executable that runs without a runtime installed. `packaging/webapi/make-linux-singlefile.sh <version> <out-dir>` publishes via the flag and reuses `make-zip.sh` (strips pdbs, packs roms into `ROMS.PAK`). `.github/workflows/package.yml` has a first-class `linux-webapi` job that runs this script and uploads a `linux-webapi` artifact; it is opt-in on manual `workflow_dispatch` runs (new `publish_webapi` input) but builds on every push/PR, and its output is aggregated into the release step.
 
 ## 10. Out of Scope (future)
 
