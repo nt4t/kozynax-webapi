@@ -20,6 +20,11 @@ dotnet publish src/Kozynax.WebApi/Kozynax.WebApi.csproj -c Release \
 ./dist/webapi/Kozynax.WebApi
 ```
 
+> **`dotnet` may not be on your `PATH`.** On this machine the CLI lives at
+> `/home/can/.dotnet/dotnet`, so call it with the full path, e.g.
+> `/home/can/.dotnet/dotnet run --project src/Kozynax.WebApi -c Release`.
+> Set `DOTNET_CLI_TELEMETRY_OPTOUT=1` to silence telemetry prompts.
+
 ## HTTP endpoints
 
 ### Status / CPU
@@ -67,6 +72,48 @@ curl -s -X POST localhost:5080/snapshot -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com/game.z80"}'
 ```
 
+### Selecting / changing the machine
+There is **no dedicated "set machine" endpoint**. The emulator boots with the bus
+marked `isDefault="true"` in `machines.config`, which currently defaults to
+**Pentagon 128K** (`modelId:4`). To run on a different machine (e.g. ZX Spectrum 48),
+POST that machine's bus configuration via `/config` **before** loading a snapshot.
+
+A config file is an XML document whose root is `<VirtualMachine>` and which contains
+one `<Bus modelId="…">` node. Extract the desired block from
+[`src/ZXMAK2/machines.config`](../src/ZXMAK2/machines.config) and wrap it:
+
+```xml
+<VirtualMachine>
+  <Bus name="ZX Spectrum 48" modelId="Sinclair48">
+    <Device type="ZXMAK2.Hardware.Spectrum.UlaSpectrum48" />
+    <Device type="ZXMAK2.Hardware.General.BetaDiskInterface" />
+    <Device type="ZXMAK2.Hardware.General.AY8910" frequency="1773400" maskAddr="0xC002" maskData="0xC002" portAddr="0xFFFD" portData="0xBFFD" />
+    <Device type="ZXMAK2.Hardware.General.BeeperDevice" bitEar="4" bitMic="3" />
+    <Device type="ZXMAK2.Hardware.General.TapeDevice" />
+    <Device type="ZXMAK2.Hardware.General.KeyboardDevice" />
+    <Device type="ZXMAK2.Hardware.General.KempstonJoystick" noDos="true" mask="0xe0" port="0x1f" />
+    <Device type="ZXMAK2.Hardware.General.Debugger" />
+    <Device type="ZXMAK2.Hardware.Spectrum.MemorySpectrum48" />
+  </Bus>
+</VirtualMachine>
+```
+
+A ready-made copy lives at `src/Kozynax.WebApi/spectrum48.config`:
+
+```bash
+curl -s -F "file=@src/Kozynax.WebApi/spectrum48.config;type=text/xml" localhost:5080/config
+# -> {"status":"config_loaded"}
+curl -s localhost:5080/status   # machineName:"ZX Spectrum 48", modelId:1
+```
+
+`modelId` maps to `ModelId` in
+[`src/ZXMAK2.Engine/Entities/ModelId.cs`](../src/ZXMAK2.Engine/Entities/ModelId.cs)
+(`Sinclair48`, `Sinclair128`, `SinclairPlus3`, `Pentagon128`, …).
+
+> Per-device creation failures are logged and skipped (not fatal). E.g. the Spectrum 48
+> bus's `AY8910` chip needs `IPsgChip` registered, so it loads **without AY audio** —
+> video/CPU/memory still work.
+
 `/config` accepts a multipart config-file upload only.
 
 ### Memory
@@ -78,9 +125,14 @@ curl -s -X POST localhost:5080/snapshot -H 'Content-Type: application/json' \
 
 `len` is clamped to `1..0x10000`.
 
+> **Addresses must be decimal — hex returns 404.** The route constraint is
+> `{addr:int}`, so `/mem/0xF800` (or any `0x…` address) yields `HTTP 404`. Pass the
+> address as a plain base-10 integer (`0xF800` → `63488`). The same applies to
+> `/breakpoints/{addr}` and the `{addr}` in POST `/mem/{addr}`.
+
 ```bash
-curl -s 'localhost:5080/mem/0xF800?len=16'
-curl -s -X POST localhost:5080/mem/0x6000 -H 'Content-Type: application/json' -d '{"hex":"A7"}'
+curl -s 'localhost:5080/mem/63488?len=16'     # 0xF800, decimal
+curl -s -X POST localhost:5080/mem/61440 -H 'Content-Type: application/json' -d '{"hex":"A7"}'   # 0x6000
 curl -s 'localhost:5080/memory/dump?addr=0&len=256' -o dump.bin
 ```
 
