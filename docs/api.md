@@ -5,6 +5,9 @@ Headless HTTP + WebSocket control surface over the Kozynax emulation/debug engin
 
 Everything runs headless (offscreen SDL); no display/window required.
 
+Need to know *how* to format requests (JSON vs multipart, curl pitfalls)? See
+[How to send commands to the API](./sending-command-to-api.md).
+
 ## Quick start
 
 ```bash
@@ -56,7 +59,8 @@ curl -s -X POST localhost:5080/stop
 
 ```bash
 # upload a snapshot (filename extension drives format detection)
-curl -s -F "file=@Exolon_1987...z80@application/octet-stream" localhost:5080/snapshot
+# NOTE: use @path;type=… — the @path@type form is invalid and curl will send nothing.
+curl -s -F "file=@Exolon_1987...z80;type=application/octet-stream" localhost:5080/snapshot
 
 # or load by URL
 curl -s -X POST localhost:5080/snapshot -H 'Content-Type: application/json' \
